@@ -106,21 +106,17 @@ while True:
                 cx, cy = int(index_tip.x * w), int(index_tip.y * h)
 
                 if last_finger_x is not None and last_finger_y is not None:
-                    # Hitung Jarak dari posisi jari sebelumnya
                     dist = math.hypot(cx - last_finger_x, cy - last_finger_y)
 
-                    # INTERPOLASI LUKISAN (Mencegah stroke terputus saat gerakan cepat)
-                    # Setiap ~12 pixel jarak, kita isi dengan 1 bunga di sepanjang garis
-                    steps = max(1, int(dist / 12))
+                    # Rapatkan jarak (setiap 5 pixel diisi bunga) agar garis padat & tidak putus
+                    steps = max(1, int(dist / 5))
                     for i in range(steps):
-                        # Rumus Lerp (Linear Interpolation)
                         t = i / steps
                         interp_x = int(last_finger_x + (cx - last_finger_x) * t)
                         interp_y = int(last_finger_y + (cy - last_finger_y) * t)
                         
                         animation.add(SakuraParticle(interp_x, interp_y))
                 else:
-                    # Titik pertama saat jari baru terdeteksi
                     animation.add(SakuraParticle(cx, cy))
 
                 last_finger_x, last_finger_y = cx, cy
@@ -129,6 +125,7 @@ while True:
                     frame, "CANVAS PAINTING 🌸", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (203, 192, 255), 2
                 )
+                
             else:
                 last_finger_x, last_finger_y = None, None
     else:
