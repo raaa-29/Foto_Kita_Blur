@@ -1,6 +1,6 @@
 import cv2
 import mediapipe as mp
-
+from animation import EnergyRing
 # ======================================
 # MediaPipe
 # ======================================
@@ -19,6 +19,7 @@ hands = mp_hands.Hands(
 # ======================================
 
 camera = cv2.VideoCapture(0)
+animations = []
 
 # ======================================
 # Blur Animation
@@ -76,6 +77,16 @@ while True:
 
                 peace = True
 
+                h, w, _ = frame.shape
+
+                palm = hand.landmark[9]
+
+                x = int(palm.x * w)
+                y = int(palm.y * h)
+
+                if len(animations) == 0:
+                    animations.append(EnergyRing(x, y))
+
                 cv2.putText(
                     frame,
                     "PEACE DETECTED",
@@ -126,7 +137,13 @@ while True:
         (255, 255, 255),
         2
     )
+    for animation in animations:
 
+        animation.update()
+
+        animation.draw(frame)
+
+    animations = [a for a in animations if not a.finished]
     cv2.imshow("Foto Kita Blur", frame)
 
     if cv2.waitKey(1) & 0xFF == ord("q"):
