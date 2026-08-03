@@ -2,11 +2,7 @@ import cv2
 import math
 import mediapipe as mp
 
-from animation import (
-    EnergyRing,
-    ParticleExplosion,
-    AnimationManager
-)
+from animation import EnergyRing, AnimationManager
 from particles import SakuraParticle
 
 # ======================================
@@ -17,11 +13,10 @@ mp_draw = mp.solutions.drawing_utils
 
 hands = mp_hands.Hands(
     max_num_hands=1,
-    min_detection_confidence=0.7,
-    min_tracking_confidence=0.7
+    min_detection_confidence=0.6,
+    min_tracking_confidence=0.6
 )
 
-# Kunci Perbaikan: Inisialisasi variabel kamera & animation
 camera = cv2.VideoCapture(0)
 animation = AnimationManager()
 
@@ -49,7 +44,9 @@ def is_peace(hand):
 
 
 def is_pointing(hand):
+    # Telunjuk Lurus ke atas
     index = hand.landmark[8].y < hand.landmark[6].y
+    # Jari tengah, manis, kelingking menekuk
     middle = hand.landmark[12].y > hand.landmark[10].y
     ring = hand.landmark[16].y > hand.landmark[14].y
     pinky = hand.landmark[20].y > hand.landmark[18].y
@@ -82,16 +79,18 @@ while True:
                 mp_hands.HAND_CONNECTIONS
             )
 
-            # 1. Mode Peace (Blur + Explosion)
+            # ----------------------------------
+            # 1. Mode Peace (Hanya Blur + Ring)
+            # ----------------------------------
             if is_peace(hand):
                 peace = True
                 palm = hand.landmark[9]
                 x = int(palm.x * w)
                 y = int(palm.y * h)
 
+                # Bubble / ParticleExplosion SUDAH DIHILANGKAN
                 if len(animation.animations) == 0:
                     animation.add(EnergyRing(x, y))
-                    animation.add(ParticleExplosion(x, y))
 
                 cv2.putText(
                     frame, "PEACE DETECTED", (20, 40),
@@ -99,31 +98,35 @@ while True:
                 )
                 last_finger_x, last_finger_y = None, None
 
-            # 2. Mode Pointing (Sakura Brush)
+            # ----------------------------------
+            # 2. Mode Pointing (Canvas Sakura Brush)
+            # ----------------------------------
             elif is_pointing(hand):
                 index_tip = hand.landmark[8]
                 cx, cy = int(index_tip.x * w), int(index_tip.y * h)
 
-                # Spawning berdasarkan kecepatan gerakan telunjuk
                 if last_finger_x is not None and last_finger_y is not None:
+                    # Hitung Jarak dari posisi jari sebelumnya
                     dist = math.hypot(cx - last_finger_x, cy - last_finger_y)
 
-                    if dist > 25:
-                        spawn_count = 5
-                    elif dist > 10:
-                        spawn_count = 2
-                    elif dist > 3:
-                        spawn_count = 1
-                    else:
-                        spawn_count = 0
-
-                    for _ in range(spawn_count):
-                        animation.add(SakuraParticle(cx, cy))
+                    # INTERPOLASI LUKISAN (Mencegah stroke terputus saat gerakan cepat)
+                    # Setiap ~12 pixel jarak, kita isi dengan 1 bunga di sepanjang garis
+                    steps = max(1, int(dist / 12))
+                    for i in range(steps):
+                        # Rumus Lerp (Linear Interpolation)
+                        t = i / steps
+                        interp_x = int(last_finger_x + (cx - last_finger_x) * t)
+                        interp_y = int(last_finger_y + (cy - last_finger_y) * t)
+                        
+                        animation.add(SakuraParticle(interp_x, interp_y))
+                else:
+                    # Titik pertama saat jari baru terdeteksi
+                    animation.add(SakuraParticle(cx, cy))
 
                 last_finger_x, last_finger_y = cx, cy
 
                 cv2.putText(
-                    frame, "SAKURA BRUSH ACTIVE 🌸", (20, 40),
+                    frame, "CANVAS PAINTING 🌸", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (203, 192, 255), 2
                 )
             else:
@@ -139,7 +142,7 @@ while True:
     else:
         target_blur = 1
 
-    speed = 4
+    speed = 5
     if blur_level < target_blur:
         blur_level += speed
     elif blur_level > target_blur:
